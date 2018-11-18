@@ -1,0 +1,30 @@
+{
+  "name": "newsr_node",
+  "version": "1.0.0",
+  "description": "a node to get news from twitter and rss feeds",
+  "main": "newsr_node.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StefCon23/newsr_node.git"
+  },
+  "keywords": [
+    "newsr",
+    "twitter",
+    "rss",
+    "node",
+    "js"
+  ],
+  "author": "Conor Stefanini",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/StefCon23/newsr_node/issues"
+  },
+  "homepage": "https://github.com/StefCon23/newsr_node#readme",
+  "dependencies": {
+    "jsdom": "^13.0.0",
+    "xmlhttprequest": "^1.8.0"
+  }
+}
