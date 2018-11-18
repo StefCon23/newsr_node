@@ -64,7 +64,6 @@ function getURL(url, callback) {
 		}
 	}
 	request.send();
-	//console.log("html returned;\n");
 	//console.log(request.responseText);
 	callback(request.responseText);
 	console.log("finished getting url; " + url + "\n");
