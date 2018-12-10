@@ -113,6 +113,36 @@ function replaceSpace(text) {
 	return text.replace(/\r/g, "").replace(/\n/g, " ");
 }
 
+
+/*	twitterfy
+**		enter a username, get a twitter link
+*/
+function twitterfy(twizz) {
+	//	output variable
+	var out;
+	//	check if it's a user handle
+	if (twizz.substr(0, 1) == "@") {
+		//	make it a full twitter link
+		out = "<a class=\"link-cst\" target=\"_blank\" ";
+		out += "href=\"https://twitter.com/" + twizz.substr(1) + "\">";
+		out += twizz + "</a>";
+	} else if (isNaN(twizz) == false) {
+		//	returns true for char strings, false for numeric strings
+		out = "<a class=\"link-cst\" target=\"_blank\" ";
+		out += "href=\"https://twitter.com/foo/status" + twizz + "\">";
+		out += twizz + "</a>";
+	} else {
+		//out = "<a class=\"link-cst\" ";
+		//out += "href=\"https://twitter.com/" + twizz + "\">";
+		//out += twizz + "</a>";
+		out = twizz;
+	}
+
+	return out;
+}
+
+
+
 /*	clean HTML; search and destroy html tags
 **		function will probably evolve weirdly
 **		yeah, putting a warning in now, this is basically html regex
@@ -146,6 +176,12 @@ function replaceSpace(text) {
 **			get in to jsdom for this
 */
 function cleanHTML(someHTML) {
+	/*	this function is disgusting
+	**		basic attribute check logic is sound
+	**		the flow is insanity
+	**		need to redo, but just want to go faster, and no time in
+	**			anyways
+	*/
 
 	console.log("cleaning some html; " + someHTML);
 	var squeeky = someHTML;
@@ -494,10 +530,16 @@ console.log("  nu string is; " + replaceSpace(squeeky));
 		} else if (((tag == "span") && (refflag == "emoji")) 
 			|| ((tag == "img") && (refflag == "emojitxt"))) {
 
-			var emojiref = "<img class=\"emoji-cst\" alt=\"";
-			emojiref += reftext + "\" src=\"";
-			emojiref += reflink;
-			emojiref += "\">";
+			var emojiref = "<img class=\"emoji-cst\" ";
+			//	need to implement this across the actual lines and that
+			//		o wait
+			//		implement this on the website's css, not hard coded
+			//		glad I realised that
+			//if (htmlstyle != null) {
+			//	emojiref += "style=\"" + htmlstyle + "\" ";
+			//}
+			emojiref += "alt=\"" + reftext + "\" ";
+			emojiref += "src=\"" + reflink + "\">";
 			console.log(" sq sl 0 frst; " + squeeky.slice(0, first));
 			console.log(" sq emojirefr; " + emojiref);
 			console.log(" sq sl scnd l; " + (squeeky.slice((last + ("</" + tag + ">").length), squeeky.length)));
@@ -644,6 +686,11 @@ function htmolestATweet(rawTwatShite, format = "json") {
 			reqtime : Date.now(),
 			twts : []
 		}
+	} else if (format == "html") {
+		var marquee = true;
+		if (marquee) {
+			output = "<div><marquee class=\"slider-cst\" behaviour=\"slide\" direction=\"left\" scrollamount=\"5\" scrolldelay=\"1\">";
+		}
 	} else if (format == "text") {
 		output = "";
 	} else {
@@ -712,28 +759,46 @@ function htmolestATweet(rawTwatShite, format = "json") {
 
 
 		//	format output values
+		//	fyi this will output html links (a) and images (img)
 		if (format == "json") {
 			//	replacing reply / retwt / like text with just a number
 			//		thats the replace function below
 			output.twts.push({
 				id : id, 
-				username : username,	fullname : fullname,
+				username : username, 
+				fullname : fullname,
 				tweet : tweet,
-				time : time,			epoch : epoch, 
+				time : time, 
+				epoch : epoch, 
 				replies : replies.replace(/[^0-9]/g, ''),
 				retweets : retweets.replace(/[^0-9]/g, ''),
 				likes : likes.replace(/[^0-9]/g, '')
 			});
-		} else if (format == "text") {
-			output += "\n---\n" + id + " | " + fullname;
-			output += " (" + username + "); " + tweet + "; ";
-			output += replies + ", " + retweets + ", " + likes + "\n";
+		} else if (format == "html") {
+			/*	current html format (rolling headlines 2018-12-03)
+			**		<marquee behaviour="slide" direction="left" scrollamount="5" scrolldelay="1">
+			**			(<img src="news/thejournal_ie/favicon.ico" style="margin-bottom: 0.5em;" width="16px" height="16px" align="middle">   <a href="http://www.thejournal.ie/heres-what-happened-today-monday-28-4373967-Dec2018/" target="_blank">[Here's What Happened Today: Monday ]</a><p>   Rise in rough sleepers, Brexit legal advice and an English language college closing had everyone talking today.</p>)
+			**			(<img src="news/thejournal_ie...
+			**			...
+			**		</marquee>
+			*/
+
+			output += "[ " + fullname + " (" + twitterfy(username) + ")";
+			output += " | " + twitterfy(username.substr(1) + "/status/" + id);
+			output +=  " | " + tweet + " | ";
+			output += replies + ", " + retweets + ", " + likes;
+			output += " ]   ";
+
 		} else {
-			//	return text for unknowns
+			//	return plain text for unknowns (including "text")
 			output += "\n---\n" + id + " | " + fullname;
 			output += " (" + username + "); " + tweet + "; ";
 			output += replies + ", " + retweets + ", " + likes + "\n";
 		}
+	}
+
+	if ((format == "html") && (marquee == true)) {
+		output += "</marquee></div>";
 	}
 	console.log("finishing html tweet parse now")
 	return output;
@@ -746,7 +811,9 @@ function helpMessage(type="full") {
 	var message;
 
 	message = "NEWSR.NODE\n";
-	message += "\ta node for news, from twitter and rss feeds\n";
+	message += "\ta node for news"
+	message += "\t\tparses html (and rss) like an incoherent cokehead";
+	message += "figuring out a dvd player";
 	message += "usage;\n";
 	message += "\tnewsr.node/twt?username\n";
 
@@ -756,7 +823,7 @@ function helpMessage(type="full") {
 /*	actual server,      ENTRY POINT ------------------------------------
 */
 const server = http.createServer((req, res) => {
-	//	print request url
+	//	print request url to log
 	console.log("starting up at; " + Date.now().toString());
 	console.log("request is; " + req.url);
 	//	going to be dicking with url's soon
@@ -787,14 +854,21 @@ const server = http.createServer((req, res) => {
 		//	everything before ?
 		var proto = url.slice(0, url.indexOf("\?"));
 		//	everything after ?
-		var u = url.substr(url.indexOf("\?") + 1);
+		var reqstr = url.substr(url.indexOf("\?") + 1);
 		//	todo; test with multiple ?'s (???)
-		console.log("got a request for; " + proto + ", and; " + u);
+		console.log("got a request for; " + proto + ", and; " + reqstr);
 
 		var message = "";
-
-		if (proto == "twt") {
-			url = "https://twitter.com/" + u;
+/*
+		var ref = reqstr.substr(-reqstr.indexOf("=") );
+		var val = reqstr.substr(reqstr.indexOf("=") + 1);
+		//	check provided url options
+		if ( val == 1) {	//	fail
+			
+		}
+*/
+		if ((proto == "twt") || (proto == "twitter")) {
+			url = "https://twitter.com/" + reqstr;
 			console.log("getting some tweets from; " + url);
 			getURL(url, function(out){
 				console.log("running callback on html request");
@@ -815,11 +889,16 @@ const server = http.createServer((req, res) => {
 				});
 */
 
-				message = htmolestATweet(out, "text");
+				//message = htmolestATweet(out, "text");
+				message = htmolestATweet(out, "html");
 				res.end(message);
 			});
 		} else if (proto == "rss") {
 			message = "well then I'd do something rss related";
+
+		} else if ((proto == "rip") || (proto == "rip.ie") || (proto == "ripie")) {
+			//	only does the latest rip.ie notices
+			if reqstr
 		} else {
 			message = "can't go wrong with a NEWSR.NODE ";
 			message += "(don't know what to do with " + req.url + ")";
