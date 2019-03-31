@@ -1,6 +1,6 @@
 /*	newsr_node.js
 **	a node js site to act like a rest api for getting news,
-**		in tweets and in rss
+**		in tweets and in, and rip.ie
 **	branched out of the cst_node.js which should be a viewing component
 **		with react or similar
 **	CST, originally started 5 Nov 2018, branched 17 Nov 2018
@@ -12,8 +12,7 @@
 **			tweet status ("tweeted", "retweeted") and parent users
 **			link extraction, make sure it's going alright
 **		rss...
-**		write to file
-**		nicely formatted html to file
+**		rip.ie
 */
 
 /*	host and port will be mapped further by apache
@@ -43,6 +42,7 @@ const fs = require('fs');
 */
 
 /*	getURL, to get a url, using xmlhttprequest
+**		used to get tweet html, etc
 */
 function getURL(url, callback) {
 	console.log("getting url; " + url + "; now");
@@ -70,7 +70,8 @@ function getURL(url, callback) {
 	return "success";
 }
 
-/*	get keys, to get an object's keys, mainly used for random dom objs
+/*	get keys, to get an object's keys, mainly used to understand 
+**		dom objects
 */
 var getKeys = function(obj){
    var keys = [];
@@ -79,6 +80,7 @@ var getKeys = function(obj){
    }
    return keys;
 }
+
 
 /*	get tweet's link
 **		people seem to tweet links as a tweet's centre piece (or photos,
@@ -90,8 +92,8 @@ function getTweetsLink(tweet) {
 	//	check for html tags, get attributes
 }
 
-/*	space pad, returns a string with 'len' amount of spaces then a ^
-**		used to compare index values against strings
+/*	pad space, returns a string with 'len' amount of spaces then a ^
+**		used to compare index values against strings in a debug sense
 */
 function padSpace(len, point = "^") {
 	var mess = "";
@@ -113,35 +115,65 @@ function replaceSpace(text) {
 	return text.replace(/\r/g, "").replace(/\n/g, " ");
 }
 
-
-/*	twitterfy
-**		enter a username, get a twitter link
+/*	pretty number, prints a number pretty, i.e. 3000000 to 3mil
 */
-function twitterfy(twizz) {
+function prettyNumber(number) {
+	//	3210 to 3,210
+	//	3210 to 3k
+	//	3210 to 3.21k
+	//	going for last one, 2 decimal places
+
+	//	not relevant if number is 999 or less
+	if (number <= 999) {
+		return number;
+	}
+	let newmber = number;
+	number = number / 1000;
+	newmber = 'k';
+	while ((number / 1000) >= 1) {
+		number = number / 1000;
+		if (newmber == 'k') {
+			newmber = 'm';
+		} else if (newmber == 'm') {
+			newmber = 'bn';
+		}
+	}
+	number *= 100;
+	number = Math.trunc(number);
+	number /= 100;
+	return number + newmber;
+}
+/*	twitterfy
+**		enter a username, or a status number, get a twitter link
+*/
+function twitterfy(twizz, text = null) {
 	//	output variable
 	var out;
-	//	check if it's a user handle
+	//	check if input's a user handle
 	if (twizz.substr(0, 1) == "@") {
-		//	make it a full twitter link
+		//	make it a full twitter link to the user's page
 		out = "<a class=\"link-cst\" target=\"_blank\" ";
 		out += "href=\"https://twitter.com/" + twizz.substr(1) + "\">";
-		out += twizz + "</a>";
+		//	if text is supplied then use it, otherwise just the handle
+		out += ((text == null) ? twizz : text);
+		out += "</a>";
 	} else if (isNaN(twizz) == false) {
-		//	returns true for char strings, false for numeric strings
+		//	check if input's a status
+		//		isNaN returns true for char strings, false for numeric 
+		//		strings
+		//	return a link to the status
 		out = "<a class=\"link-cst\" target=\"_blank\" ";
-		out += "href=\"https://twitter.com/foo/status" + twizz + "\">";
-		out += twizz + "</a>";
+		out += "href=\"https://twitter.com/foo/status/" + twizz + "\">";
+		out += ((text == null) ? twizz : text);
+		out += "</a>";
 	} else {
-		//out = "<a class=\"link-cst\" ";
-		//out += "href=\"https://twitter.com/" + twizz + "\">";
-		//out += twizz + "</a>";
+		//	just return the same text for unknowns
+		console.log("twitterfy can't handle unknown; " + twitterfy);
 		out = twizz;
 	}
 
 	return out;
 }
-
-
 
 /*	clean HTML; search and destroy html tags
 **		function will probably evolve weirdly
@@ -179,8 +211,7 @@ function cleanHTML(someHTML) {
 	/*	this function is disgusting
 	**		basic attribute check logic is sound
 	**		the flow is insanity
-	**		need to redo, but just want to go faster, and no time in
-	**			anyways
+	**		need to redo, but just want to go faster
 	*/
 
 	console.log("cleaning some html; " + someHTML);
@@ -212,6 +243,7 @@ function cleanHTML(someHTML) {
 		//			"@<b>everysnake</b>"
 		//		<a> tags, main links, images, other users, etc.
 		//		<span>, I've seen it in some tweets, not sure on usage
+		//		<img> tags for user profile pictures
 
 		//	get the tag
 		//	todo; need to get index of angles AFTER value of (last + len
@@ -331,6 +363,10 @@ console.log(" fuckufckufuckfucukfkcufk");
 			}
 			console.log(" found attr; " + ref);
 			//	attribute is href, get link url and text
+
+
+			/*	this is the attribure check / process
+			*/
 			if (ref == "class") {
 				//	checking emojis
 				first += 2;	//	skip the = and the "
@@ -579,6 +615,26 @@ console.log("  nu string is; " + replaceSpace(squeeky));
 		} else if ((tag == "img") && (refflag == "cst")) {
 			//	that's good, do nothing
 			console.log(" got a cst image, continuing");
+		} else if ((tag == "img") 
+				&& (reflink == "avatar js-action-profile-avatar")) {
+			console.log("got a profile pic div");
+			//	trying to get jusst the img src link
+			//	indexof to find a string
+			console.log(" squee; " + replaceSpace(squeeky));
+			console.log(" ind s;" + padSpace( squeeky.indexOf("src=\"", 0) + 5));
+			console.log(" meta ;" + padSpace(squeeky.indexOf("\"", squeeky.indexOf("src=\"", 0) + 5)));
+			//console.log("ind of src=\";" + squeeky.indexOf("src=\"", 0));
+			//console.log("squeeky is; " + squeeky);
+			squeeky = squeeky.slice(
+				(squeeky.indexOf("src=\"", 0) + 5),
+				(squeeky.indexOf("\"", squeeky.indexOf("src=\"", 0) + 5))
+			);
+			console.log("new squeek; " + squeeky);
+			//margin-bottom:0.5em;
+			//margin-top:1em;
+			//squeeky = "<img class=\"image-cst\" style=\"width:16px;height:16px;\" src=\"" + squeeky + "\">";
+			//style="margin-bottom: 0.5em;" width="16px" height="16px" align="middle"
+			squeeky = "<img class=\"image-cst\" style=\"margin-bottom:0.5em;\" width=\"16px\" height=\"16px\" align=\"middle\" src=\"" + squeeky + "\">";
 		} else {
 			console.log(" don't know how to deal with tag; " + tag);
 			console.log("FAILed cleaning");
@@ -628,9 +684,14 @@ if (chugger < squeeky.length) {
 }
 
 /*	htmolest a tweet, handes twitter html pages to get tweets out
-**		should have return values here, desriptor etc.
+**		input's; rawTwatShite is just whatever html comes out of a 
+**			twitter link, format is the desired output, see below
+**		output's a bunch of tweet's in a specified format of either
+**			json, html, or text, html can be marquee'd and is kind of 
+**			hardcode formatted and weird for the moment, very specific
+**			to usage on rolling headlines page
 */
-function htmolestATweet(rawTwatShite, format = "json") {
+function htmlestATweet(rawTwatShite, format = "json") {
 	/*	twitter structure
 	**
 	**	so the class "js-tweet-text-container" contains a p tag with the
@@ -729,6 +790,14 @@ function htmolestATweet(rawTwatShite, format = "json") {
 		fullname = cleanHTML(fullname);
 		console.log("got fullname; " + fullname);
 
+		//	getting user picture
+		userpic = header.getElementsByClassName("avatar js-action-profile-avatar")[0].getAttribute("src");
+		//console.log("usr pc div keys; " + getKeys(header.getElementsByClassName("avatar js-action-profile-avatar")[0]));
+		//console.log("usr pc div; " + header.getElementsByClassName("avatar js-action-profile-avatar")[0]);
+		//console.log("usr pc div outr; " + header.getElementsByClassName("avatar js-action-profile-avatar")[0].outerHTML);
+		userpic = cleanHTML(header.getElementsByClassName("avatar js-action-profile-avatar")[0].outerHTML);
+		console.log("got userpic; " + userpic);
+
 		//	getting tweet
 		tweet = classes[i].firstElementChild.innerHTML;
 		//	todo; get any links in the tweet and reformat to be nice;
@@ -767,6 +836,7 @@ function htmolestATweet(rawTwatShite, format = "json") {
 				id : id, 
 				username : username, 
 				fullname : fullname,
+				userpic : userpic, 
 				tweet : tweet,
 				time : time, 
 				epoch : epoch, 
@@ -783,16 +853,23 @@ function htmolestATweet(rawTwatShite, format = "json") {
 			**		</marquee>
 			*/
 
-			output += "[ " + fullname + " (" + twitterfy(username) + ")";
-			output += " | " + twitterfy(username.substr(1) + "/status/" + id);
-			output +=  " | " + tweet + " | ";
-			output += replies + ", " + retweets + ", " + likes;
+			//output += "[ " + fullname + " (" + twitterfy(username);
+			output += "[" + userpic + " " + twitterfy(username, fullname);
+			//output += " " + userpic + ")";
+			output += " | " + twitterfy(id, tweet) + " | ";
+			//output +=  " | " + tweet + " | ";
+			//output += replies + ", " + retweets + ", " + likes;
+			//output += replies.replace(/[^0-9]/g, '') + " rp's, ";
+			output += prettyNumber(replies.replace(/[^0-9]/g, '')) + " rp's, ";
+			output += prettyNumber(retweets.replace(/[^0-9]/g, '')) + " rt's, ";
+			output += prettyNumber(likes.replace(/[^0-9]/g, '')) + " lk's\n";
 			output += " ]   ";
 
 		} else {
 			//	return plain text for unknowns (including "text")
 			output += "\n---\n" + id + " | " + fullname;
 			output += " (" + username + "); " + tweet + "; ";
+			//output += replies.replace(/[^0-9]/g, '') + "rp's, " + retweets.replace(/[^0-9]/g, '') + "rt's, " + likes.replace(/[^0-9]/g, '') + "lk's\n";
 			output += replies + ", " + retweets + ", " + likes + "\n";
 		}
 	}
@@ -812,14 +889,24 @@ function helpMessage(type="full") {
 
 	message = "NEWSR.NODE\n";
 	message += "\ta node for news"
-	message += "\t\tparses html (and rss) like an incoherent cokehead";
-	message += "figuring out a dvd player";
+	message += "\t\tparses html (and rss) like an incoherent cokehead ";
+	message += "figuring out a dvd player\n";
 	message += "usage;\n";
+	message += "\tnewsr.node/[protocol]?([user/link]),(options)\n";
+	message += "e.g.\n";
 	message += "\tnewsr.node/twt?username\n";
+	message += "\tnewsr.node/twitter?realDonaldTrump\n";
+	message += "\tnewsr.node/twitter?countDankulaTV,format=json\n";
 
 	return message;
 }
 
+
+function parseRIPs(rawRIPs, format="json") {
+	var message = "";
+	
+	return message;
+}
 /*	actual server,      ENTRY POINT ------------------------------------
 */
 const server = http.createServer((req, res) => {
@@ -859,14 +946,7 @@ const server = http.createServer((req, res) => {
 		console.log("got a request for; " + proto + ", and; " + reqstr);
 
 		var message = "";
-/*
-		var ref = reqstr.substr(-reqstr.indexOf("=") );
-		var val = reqstr.substr(reqstr.indexOf("=") + 1);
-		//	check provided url options
-		if ( val == 1) {	//	fail
-			
-		}
-*/
+
 		if ((proto == "twt") || (proto == "twitter")) {
 			url = "https://twitter.com/" + reqstr;
 			console.log("getting some tweets from; " + url);
@@ -874,23 +954,9 @@ const server = http.createServer((req, res) => {
 				console.log("running callback on html request");
 				//	todo; find out how res end does it's do, maybe send 
 				//		a full packaged html
-				//res.end("finishing that callback; \n" + out + "\n; (that was it)\n");
 
-/*
-				//	saving response
-				var file = "/temp";
-				fs.writeFile(file, out, function(err) {
-					if (err) {
-						console.log("error saving file; " + file);
-						console.log("error message; " + err);
-						return console.log(err);
-					}
-					console.log("the file; " + file + " was saved");
-				});
-*/
-
-				//message = htmolestATweet(out, "text");
-				message = htmolestATweet(out, "html");
+				//message = htmlestATweet(out, "text");
+				message = htmlestATweet(out, "html");
 				res.end(message);
 			});
 		} else if (proto == "rss") {
@@ -898,7 +964,13 @@ const server = http.createServer((req, res) => {
 
 		} else if ((proto == "rip") || (proto == "rip.ie") || (proto == "ripie")) {
 			//	only does the latest rip.ie notices
-			if reqstr
+			url = "https://rip.ie/Deathnotices";
+			console.log("getting some death notices from; " + url);
+			getURL(url, function(out){
+				console.log("running callback on html request");
+				message = parseRIPs(out, "html");
+				res.end(message);
+			});
 		} else {
 			message = "can't go wrong with a NEWSR.NODE ";
 			message += "(don't know what to do with " + req.url + ")";
@@ -910,4 +982,5 @@ const server = http.createServer((req, res) => {
 //	actual entry point
 server.listen(port, hostname, () => {
   console.log(`NEWSR.NODE running at http://${hostname}:${port}/`);
+  console.log(new Date().getTime());
 });
